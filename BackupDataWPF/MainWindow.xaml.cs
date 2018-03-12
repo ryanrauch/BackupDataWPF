@@ -5,6 +5,8 @@ using System.Collections.Generic;
 using WinForms = System.Windows.Forms;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
+using System.Diagnostics;
+using System.Threading.Tasks;
 
 namespace BackupDataWPF
 {
@@ -13,6 +15,7 @@ namespace BackupDataWPF
     /// </summary>
     public partial class MainWindow : Window
     {
+        public const String FILEPATH = "backupdata-settings.txt";
         public event PropertyChangedEventHandler PropertyChanged;
 
         private void OnPropertyChanged(string propertyname)
@@ -54,7 +57,44 @@ namespace BackupDataWPF
         {
             DataContext = this;
             InitializeComponent();
-            ReadSettings("backupdata-settings.txt");
+            ReadSettings(FILEPATH);
+        }
+
+        public void HandleError(Exception ex)
+        {
+            MessageBox.Show(String.Format("{0}\n\n{1}", ex.Message, ex.StackTrace));
+        }
+
+        /// <summary>
+        /// http://juandev.blogspot.com/2015/11/how-to-map-network-drives.html
+        /// </summary>
+        /// <param name="path"></param>
+        /// <param name="user"></param>
+        /// <param name="pass"></param>
+        public void MapNetworkDrive(String path, String user, String pass)
+        {
+            // Map Network drive
+            Process process = new Process();
+            // Notes:
+            //      Use /C To carry out the command specified by string and then terminates
+            //      You can omit the passord or username and password
+            //      Use /PERSISTENT:YES to keep the mapping when the machine is restarted
+            ProcessStartInfo psi = new ProcessStartInfo()
+            {
+                FileName = "cmd.exe",
+                Arguments = String.Format(@"/C net use X: {0}  /USER:{1} {2} /PERSISTENT:YES", 
+                                            path, 
+                                            user, 
+                                            pass),
+                WindowStyle = ProcessWindowStyle.Normal
+            };
+
+            psi.FileName = "cmd.exe";
+            psi.Arguments = @"/C net use X: \\MyServer\Folder01  /USER:MyDomain\MyUsername MyPassword /PERSISTENT:YES";
+            psi.WindowStyle = System.Diagnostics.ProcessWindowStyle.Normal;
+            process.StartInfo = psi;
+
+            process.Start();
         }
 
         /// <summary>
@@ -105,16 +145,51 @@ namespace BackupDataWPF
 
         private void ButtonRemove_Click(object sender, RoutedEventArgs e)
         {
-
+            if (!String.IsNullOrEmpty(SelectedPath))
+                BackupDirectories.Remove(SelectedPath);
         }
 
         private void ButtonSave_Click(object sender, RoutedEventArgs e)
         {
+            if (File.Exists(FILEPATH))
+                File.Delete(FILEPATH);
+            using (TextWriter tw = new StreamWriter(FILEPATH))
+            {
+                if (!String.IsNullOrEmpty(TextBoxPath.Text))
+                    tw.WriteLine("1:" + TextBoxPath.Text);
+                if (!String.IsNullOrEmpty(TextBoxUsername.Text))
+                    tw.WriteLine("2:" + TextBoxUsername.Text);
+                if (!String.IsNullOrEmpty(TextBoxPassword.Text))
+                    tw.WriteLine("3:" + TextBoxPassword.Text);
+                foreach (String s in BackupDirectories)
+                    tw.WriteLine("4:" + s);
+                tw.Close();
+            }
         }
 
-        private void ButtonBackup_Click(object sender, RoutedEventArgs e)
+        private async Task ButtonBackup_ClickAsync(object sender, RoutedEventArgs e)
         {
-
+            if (ButtonBackup.Content.Equals("Backup"))
+            {
+                ButtonBackup.Content = "Cancel";
+                try
+                {
+                    MapNetworkDrive(TextBoxPath.Text, TextBoxUsername.Text, TextBoxPassword.Text);
+                    foreach (String s in BackupDirectories)
+                    {
+                        //copy entire directory over to network drive.
+                        //report percent
+                    }
+                }
+                catch (Exception ex)
+                {
+                    HandleError(ex);
+                }
+            }
+            else
+            {
+                ButtonBackup.Content = "Backup";
+            }
         }
     }
 }
