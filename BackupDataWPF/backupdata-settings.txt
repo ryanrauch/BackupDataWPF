@@ -1,0 +1,4 @@
+1:\\10.11.23.107\c$\backup-test
+2:ryan
+3:test
+4:C:\Intel
