@@ -15,7 +15,21 @@ namespace BackupDataWPF
     /// </summary>
     public partial class MainWindow : Window
     {
+        IBackupProcedure backupProcedure { get; set; }
         public const String FILEPATH = "backupdata-settings.txt";
+        private String _destinationPath { get; set; }
+        public String DestinationPath
+        {
+            get
+            {
+                return _destinationPath ?? (_destinationPath = String.Empty);
+            }
+            set
+            {
+                _destinationPath = value;
+                OnPropertyChanged("DestinationPath");
+            }
+        }
         public event PropertyChangedEventHandler PropertyChanged;
 
         private void OnPropertyChanged(string propertyname)
@@ -58,43 +72,15 @@ namespace BackupDataWPF
             DataContext = this;
             InitializeComponent();
             ReadSettings(FILEPATH);
+            backupProcedure = new BackupProcedure();
         }
 
         public void HandleError(Exception ex)
         {
-            MessageBox.Show(String.Format("{0}\n\n{1}", ex.Message, ex.StackTrace));
-        }
-
-        /// <summary>
-        /// http://juandev.blogspot.com/2015/11/how-to-map-network-drives.html
-        /// </summary>
-        /// <param name="path"></param>
-        /// <param name="user"></param>
-        /// <param name="pass"></param>
-        public void MapNetworkDrive(String path, String user, String pass)
-        {
-            // Map Network drive
-            Process process = new Process();
-            // Notes:
-            //      Use /C To carry out the command specified by string and then terminates
-            //      You can omit the passord or username and password
-            //      Use /PERSISTENT:YES to keep the mapping when the machine is restarted
-            ProcessStartInfo psi = new ProcessStartInfo()
+            Dispatcher.Invoke(() =>
             {
-                FileName = "cmd.exe",
-                Arguments = String.Format(@"/C net use X: {0}  /USER:{1} {2} /PERSISTENT:YES", 
-                                            path, 
-                                            user, 
-                                            pass),
-                WindowStyle = ProcessWindowStyle.Normal
-            };
-
-            psi.FileName = "cmd.exe";
-            psi.Arguments = @"/C net use X: \\MyServer\Folder01  /USER:MyDomain\MyUsername MyPassword /PERSISTENT:YES";
-            psi.WindowStyle = System.Diagnostics.ProcessWindowStyle.Normal;
-            process.StartInfo = psi;
-
-            process.Start();
+                MessageBox.Show(String.Format("{0}\n\n{1}", ex.Message, ex.StackTrace));
+            });
         }
 
         /// <summary>
@@ -167,19 +153,39 @@ namespace BackupDataWPF
             }
         }
 
-        private async Task ButtonBackup_ClickAsync(object sender, RoutedEventArgs e)
+        public void ReportStatus(String info)
         {
+            Dispatcher.Invoke(() =>
+            {
+                LabelStatus.Content = info;
+            });
+        }
+        public void ReportProgress(int completed, int total)
+        {
+            Dispatcher.Invoke(() =>
+            {
+                ProgressBarStatus.Value = (double)completed / (double)total * 100;
+            });
+        }
+
+        private async void ButtonBackup_ClickAsync(object sender, RoutedEventArgs e)
+        {
+            if (BackupDirectories == null || BackupDirectories.Count == 0)
+                return;
+            LabelStatus.Content = String.Empty;
             if (ButtonBackup.Content.Equals("Backup"))
             {
                 ButtonBackup.Content = "Cancel";
                 try
                 {
-                    MapNetworkDrive(TextBoxPath.Text, TextBoxUsername.Text, TextBoxPassword.Text);
-                    foreach (String s in BackupDirectories)
-                    {
-                        //copy entire directory over to network drive.
-                        //report percent
-                    }
+                    String source = BackupDirectories[0].Split('\\')[0];
+                    String path = TextBoxPath.Text;
+                    if (!path.EndsWith("\\"))
+                        path += "\\";
+                    path += System.Environment.MachineName + "\\";
+                    path += DateTime.Now.ToString("yyyyMMdd") + "\\";
+                    await Task.Run(() => backupProcedure.ExecuteBackupProcedureAsync(this, source, path, BackupDirectories));
+                    ButtonBackup.Content = "Backup";
                 }
                 catch (Exception ex)
                 {

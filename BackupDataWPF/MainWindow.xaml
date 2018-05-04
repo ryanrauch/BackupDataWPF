@@ -14,14 +14,16 @@
         <Grid.RowDefinitions>
             <RowDefinition Height="*"/>
             <RowDefinition Height="50"/>
+            <RowDefinition Height="25"/>
         </Grid.RowDefinitions>
 
         <ProgressBar Grid.Row="1" Grid.Column="0" x:Name="ProgressBarStatus" Minimum="0" Maximum="100" Value="0" Margin="5"/>
+        <Label Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="2" x:Name="LabelStatus"/>
         <Label Grid.Row="1" Grid.Column="0" x:Name="LabelProgress" Content="0%" HorizontalAlignment="Center" VerticalAlignment="Center"/>
-        <Button Grid.Row="1" Grid.Column="1" x:Name="ButtonBackup" Content="Backup" Click="ButtonBackup_Click" Margin="5"/>
+        <Button Grid.Row="1" Grid.Column="1" x:Name="ButtonBackup" Content="Backup" Click="ButtonBackup_ClickAsync" Margin="5"/>
         <StackPanel Grid.Row="0" Grid.Column="0" Orientation="Vertical" Margin="5">
             <TextBlock Text="Path"/>
-            <TextBox x:Name="TextBoxPath"/>
+            <TextBox x:Name="TextBoxPath" Text="{Binding DestinationPath}"/>
             <TextBlock Text="Username:"/>
             <TextBox x:Name="TextBoxUsername"/>
             <TextBlock Text="Password:"/>
