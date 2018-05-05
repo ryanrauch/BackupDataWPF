@@ -17,6 +17,8 @@ namespace BackupDataWPF
     {
         IBackupProcedure backupProcedure { get; set; }
         public const String FILEPATH = "backupdata-settings.txt";
+        public const String ERRORPATH = "backupdata-errors.txt";
+
         private String _destinationPath { get; set; }
         public String DestinationPath
         {
@@ -53,6 +55,21 @@ namespace BackupDataWPF
                 OnPropertyChanged("BackupDirectories");
             }
         }
+
+        private ObservableCollection<String> _excludedDirectories { get; set; }
+        public ObservableCollection<String> ExcludedDirectories
+        {
+            get
+            {
+                return _excludedDirectories ?? (_excludedDirectories = new ObservableCollection<string>());
+            }
+            set
+            {
+                _excludedDirectories = value;
+                OnPropertyChanged("ExcludedDirectories");
+            }
+        }
+
         private String _selectedPath { get; set; }
         public String SelectedPath
         {
@@ -79,7 +96,13 @@ namespace BackupDataWPF
         {
             Dispatcher.Invoke(() =>
             {
-                MessageBox.Show(String.Format("{0}\n\n{1}", ex.Message, ex.StackTrace));
+                String e = String.Format("{0}\n\n{1}\n\n{2}", DateTime.Now.ToString(), ex.Message, ex.StackTrace);
+                using (TextWriter tw = new StreamWriter(ERRORPATH))
+                {
+                        tw.WriteLine(e);
+                    tw.Close();
+                }
+                MessageBox.Show(e);
             });
         }
 
@@ -91,6 +114,8 @@ namespace BackupDataWPF
         /// 4:local-path
         /// 4: ...
         /// 4: local-path
+        /// 5: excluded-path
+        /// 5: ...
         /// </summary>
         /// <param name="file"></param>
         private void ReadSettings(String file)
@@ -112,6 +137,8 @@ namespace BackupDataWPF
                         TextBoxPassword.Text = line.Substring(2);
                     else if (line.StartsWith("4:"))
                         BackupDirectories.Add(line.Substring(2));
+                    else if (line.StartsWith("5:"))
+                        ExcludedDirectories.Add(line.Substring(2));
                     else
                         throw new Exception(line);
                 }
@@ -164,7 +191,9 @@ namespace BackupDataWPF
         {
             Dispatcher.Invoke(() =>
             {
-                ProgressBarStatus.Value = (double)completed / (double)total * 100;
+                double p = (double)completed / (double)total * 100;
+                ProgressBarStatus.Value = p;
+                LabelProgress.Content = p.ToString("F2") + "%";
             });
         }
 
@@ -184,7 +213,7 @@ namespace BackupDataWPF
                         path += "\\";
                     path += System.Environment.MachineName + "\\";
                     path += DateTime.Now.ToString("yyyyMMdd") + "\\";
-                    await Task.Run(() => backupProcedure.ExecuteBackupProcedureAsync(this, source, path, BackupDirectories));
+                    await Task.Run(() => backupProcedure.ExecuteBackupProcedureAsync(this, source, path, BackupDirectories, ExcludedDirectories));
                     ButtonBackup.Content = "Backup";
                 }
                 catch (Exception ex)
@@ -195,6 +224,7 @@ namespace BackupDataWPF
             else
             {
                 ButtonBackup.Content = "Backup";
+                backupProcedure.CancelBackupProcedureAsync();
             }
         }
     }

@@ -5,7 +5,7 @@ namespace BackupDataWPF
 {
     public interface IBackupProcedure
     {
-        bool StillWorking { get; set; }
-        void ExecuteBackupProcedureAsync(MainWindow gui, String source, String destination, IList<String> directories);
+        void CancelBackupProcedureAsync();
+        void ExecuteBackupProcedureAsync(MainWindow gui, String source, String destination, IList<String> directories, IList<String> exclusions);
     }
 }
